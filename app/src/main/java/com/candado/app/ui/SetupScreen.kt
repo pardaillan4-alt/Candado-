@@ -95,18 +95,20 @@ fun SetupScreen() {
             StepCard(
                 n = 4, title = "Que el ahorro de batería no lo apague",
                 done = Perms.batteryOk(ctx),
-                desc = "Permite que Candado siga funcionando en segundo plano. En Xiaomi/Huawei/Oppo también activa \"Inicio automático\".",
-                button = "Permitir"
+                desc = "Permite que Candado siga funcionando en segundo plano. En Xiaomi/Redmi/POCO: en la pantalla que se abre ve a \"Ahorro de batería\" > \"Sin restricciones\" y activa \"Inicio automático\". Xiaomi a veces no avisa a la app, así que la palomita puede no salir aunque ya esté bien.",
+                button = "Abrir ajustes de Candado"
             ) {
                 try {
                     ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + ctx.packageName)))
-                } catch (e: Exception) { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+                } catch (e: Exception) {
+                    ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.packageName)))
+                }
             }
 
             StepCard(
                 n = 5, title = "Recomendado: VPN siempre activa",
                 done = false,
-                desc = "En Ajustes > Red > VPN > ⚙️ de Candado activa \"VPN siempre activa\". Hazlo antes de poner candado a \"DNS y VPN\".",
+                desc = "Opcional. En Ajustes > VPN > ⚙️ de Candado activa SOLO \"VPN siempre activa\". NO actives \"Bloquear conexiones sin VPN\": Candado solo filtra los nombres de sitios, no todo el tráfico, y esa opción corta el internet.",
                 button = "Abrir ajustes de VPN"
             ) { ctx.startActivity(Intent(Settings.ACTION_VPN_SETTINGS)) }
 
