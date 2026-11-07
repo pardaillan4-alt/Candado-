@@ -40,7 +40,14 @@ object Perms {
     fun batteryOk(ctx: Context): Boolean =
         (ctx.getSystemService(Context.POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(ctx.packageName)
 
+    /** DNS privado con nombre de host: choca con el filtro y deja sin internet. */
+    fun privateDnsHost(ctx: Context): String? = try {
+        val mode = Settings.Global.getString(ctx.contentResolver, "private_dns_mode")
+        if (mode == "hostname") Settings.Global.getString(ctx.contentResolver, "private_dns_specifier") ?: "" else null
+    } catch (e: Exception) { null }
+
     fun missing(ctx: Context): List<String> = buildList {
+        privateDnsHost(ctx)?.let { add("DNS privado en \"$it\": ponlo en Desactivado o Automático, o te quedarás sin internet con el filtro") }
         if (!accessibilityOn(ctx)) add("Vigilante (accesibilidad) apagado")
         if (!OwnerPolicies.isAdmin(ctx)) add("Protección contra desinstalación (administrador) apagada")
         if (Store.filterEnabled && VpnService.prepare(ctx) != null) add("Permiso del filtro (VPN) sin dar")
@@ -63,6 +70,16 @@ fun SetupScreen() {
     key(refresh) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Hint("Hazlo en este orden ANTES de poner candados en \"Ajustes críticos\" (después Candado cerrará estas pantallas).")
+
+            Perms.privateDnsHost(ctx)?.let { host ->
+                InfoCard {
+                    Text("⚠️ DNS privado configurado: $host", fontWeight = FontWeight.Bold, color = Danger)
+                    Hint("Con el filtro de Candado esto te deja sin internet. Ve a Ajustes > Conexión y compartir (o Red) > DNS privado y elige \"Desactivado\". Hazlo ANTES de poner candado a \"DNS y VPN\".")
+                    OutlinedButton(onClick = {
+                        try { ctx.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) } catch (_: Exception) {}
+                    }) { Text("Abrir ajustes de red") }
+                }
+            }
 
             StepCard(
                 n = 1, title = "Vigilante (Accesibilidad)",

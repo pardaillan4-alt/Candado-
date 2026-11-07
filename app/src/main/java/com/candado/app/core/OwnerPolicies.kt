@@ -56,7 +56,8 @@ object OwnerPolicies {
 
         if (Build.VERSION.SDK_INT >= 29 && Store.filterEnabled && dns) {
             thread(isDaemon = true) {
-                try { d.setGlobalPrivateDnsModeSpecifiedHost(a, "family.cloudflare-dns.com") } catch (_: Exception) {}
+                // DNS privado en "Automático": así todo el DNS pasa por el filtro de Candado.
+                try { d.setGlobalPrivateDnsModeOpportunistic(a) } catch (_: Exception) {}
             }
         }
     }
