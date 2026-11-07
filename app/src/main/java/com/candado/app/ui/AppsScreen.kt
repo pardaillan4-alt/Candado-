@@ -29,6 +29,24 @@ private val ESSENTIAL = setOf(
     "com.android.phone", "com.android.contacts", "com.google.android.contacts", "com.samsung.android.app.contacts"
 )
 
+/** Apps conocidas que se pueden bloquear aunque no estén instaladas. */
+val POPULAR_APPS = listOf(
+    "com.instagram.android" to "Instagram", "com.instagram.lite" to "Instagram Lite",
+    "com.instagram.barcelona" to "Threads",
+    "com.zhiliaoapp.musically" to "TikTok", "com.zhiliaoapp.musically.go" to "TikTok Lite",
+    "com.ss.android.ugc.trill" to "TikTok (Asia)",
+    "com.facebook.katana" to "Facebook", "com.facebook.lite" to "Facebook Lite",
+    "com.snapchat.android" to "Snapchat", "com.twitter.android" to "X (Twitter)",
+    "com.reddit.frontpage" to "Reddit", "com.pinterest" to "Pinterest",
+    "com.tumblr" to "Tumblr", "com.discord" to "Discord", "org.telegram.messenger" to "Telegram",
+    "com.google.android.youtube" to "YouTube", "tv.twitch.android.app" to "Twitch",
+    "com.tinder" to "Tinder", "com.bumble.app" to "Bumble", "com.badoo.mobile" to "Badoo",
+    "co.hinge.app" to "Hinge", "com.grindrapp.android" to "Grindr",
+    "com.kwai.video" to "Kwai",
+    "com.android.chrome" to "Chrome", "org.mozilla.firefox" to "Firefox", "com.opera.browser" to "Opera",
+    "com.brave.browser" to "Brave", "com.UCMobile.intl" to "UC Browser", "org.torproject.torbrowser" to "Tor Browser"
+)
+
 @Composable
 fun AppsScreen() {
     val ctx = LocalContext.current
@@ -59,6 +77,17 @@ fun AppsScreen() {
 
     val blocked = Store.blockedApps
     val open = Guard.isOpen(Target.APPS)
+    var manual by remember { mutableStateOf("") }
+
+    // Une instaladas + populares no instaladas + bloqueadas que no estén instaladas.
+    val all = apps?.let { installed ->
+        val have = installed.map { it.pkg }.toSet()
+        val known = POPULAR_APPS.toMap()
+        val extra = (POPULAR_APPS.map { it.first } + blocked).distinct()
+            .filter { it !in have && it != ctx.packageName }
+            .map { AppItem(it, (known[it] ?: it) + " · no instalada", null) }
+        installed + extra.sortedBy { it.label.lowercase() }
+    }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(8.dp))
@@ -72,7 +101,18 @@ fun AppsScreen() {
             Checkbox(checked = onlyBlocked, onCheckedChange = { onlyBlocked = it })
             Text("Ver solo bloqueadas (${blocked.size})")
         }
-        val list = apps
+        Hint("Las marcadas \"no instalada\" quedan bloqueadas por si algún día las instalas.")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(manual, { manual = it.trim() }, Modifier.weight(1f), singleLine = true,
+                label = { Text("Otra app (nombre de paquete)") }, placeholder = { Text("com.ejemplo.app") })
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = {
+                if (Regex("^[a-zA-Z][\\w]*(\\.[a-zA-Z_][\\w]*)+$").matches(manual)) {
+                    Store.blockedApps = Store.blockedApps + manual; manual = ""; toast(ctx, "App agregada al bloqueo")
+                } else toast(ctx, "Escribe el nombre de paquete, ej. com.instagram.android (aparece en el enlace de Play Store después de id=)")
+            }) { Text("Agregar") }
+        }
+        val list = all
         if (list == null) {
             Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         } else {
