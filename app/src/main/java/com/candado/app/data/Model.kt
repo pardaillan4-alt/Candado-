@@ -103,5 +103,6 @@ data class Lock(
 enum class Upstream(val titulo: String, val ips: List<String>) {
     CLOUDFLARE_FAMILIA("Cloudflare Familia (adultos + malware)", listOf("1.1.1.3", "1.0.0.3")),
     CLEANBROWSING("CleanBrowsing Familia (más estricto, incluye proxies/VPN)", listOf("185.228.168.168", "185.228.169.168")),
-    OPENDNS_FAMILY("OpenDNS FamilyShield", listOf("208.67.222.123", "208.67.220.123"))
+    OPENDNS_FAMILY("OpenDNS FamilyShield", listOf("208.67.222.123", "208.67.220.123")),
+    NEXTDNS("NextDNS (tu propia configuración)", listOf("1.1.1.3", "1.0.0.3")) // IPs = respaldo si NextDNS no responde
 }

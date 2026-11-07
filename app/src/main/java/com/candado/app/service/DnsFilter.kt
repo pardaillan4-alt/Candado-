@@ -50,6 +50,9 @@ object DnsFilter {
 
         if (Store.blockedDomains.any { matchesDomain(name, it.lowercase()) }) return Verdict.Block
         if (ADULT.any { name.contains(it) }) return Verdict.Block
+        // Con NextDNS y candado en el filtro, no se puede entrar al panel para aflojarlo.
+        if (Store.upstream == com.candado.app.data.Upstream.NEXTDNS && com.candado.app.core.Guard.isProtected(com.candado.app.data.Target.FILTRO) &&
+            (matchesDomain(name, "my.nextdns.io") || matchesDomain(name, "api.nextdns.io") || name == "nextdns.io" || name == "www.nextdns.io")) return Verdict.Block
         if (Store.blockDoh && DOH.any { matchesDomain(name, it) } && name != "family.cloudflare-dns.com") return Verdict.Block
 
         if (Store.safeSearch) {

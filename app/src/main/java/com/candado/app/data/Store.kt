@@ -64,6 +64,15 @@ object Store {
         get() = Upstream.entries.firstOrNull { it.name == prefs.getString("upstream", null) } ?: Upstream.CLOUDFLARE_FAMILIA
         set(v) { prefs.edit().putString("upstream", v.name).apply(); bump() }
 
+    /** ID de configuración de NextDNS (6 caracteres, ej. abc123). */
+    var nextDnsId: String
+        get() = prefs.getString("nextdns", "") ?: ""
+        set(v) { prefs.edit().putString("nextdns", v).apply(); bump() }
+
+    /** Acepta "abc123", "abc123.dns.nextdns.io" o "https://dns.nextdns.io/abc123". */
+    fun parseNextDnsId(input: String): String? =
+        Regex("(?i)(?:^|[./])([a-f0-9]{6})(?:\\.dns\\.nextdns\\.io|$|[/?])").find(input.trim())?.groupValues?.get(1)?.lowercase()
+
     fun locks(): List<Lock> {
         lockCache?.let { return it }
         val raw = prefs.getString("locks", "[]") ?: "[]"

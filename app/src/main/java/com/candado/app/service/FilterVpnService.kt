@@ -124,6 +124,9 @@ class FilterVpnService : VpnService() {
     }
 
     private fun forward(query: ByteArray): ByteArray? {
+        if (Store.upstream == com.candado.app.data.Upstream.NEXTDNS && Store.nextDnsId.isNotEmpty()) {
+            nextDns(query)?.let { return it }
+        }
         for (ip in Store.upstream.ips) {
             try {
                 DatagramSocket().use { s ->
@@ -139,6 +142,19 @@ class FilterVpnService : VpnService() {
         }
         return null
     }
+
+    /** Consulta cifrada (DNS sobre HTTPS) a tu configuración de NextDNS. */
+    private fun nextDns(query: ByteArray): ByteArray? = try {
+        val c = java.net.URL("https://dns.nextdns.io/" + Store.nextDnsId).openConnection() as javax.net.ssl.HttpsURLConnection
+        c.requestMethod = "POST"; c.doOutput = true
+        c.connectTimeout = 5000; c.readTimeout = 5000
+        c.setRequestProperty("Content-Type", "application/dns-message")
+        c.setRequestProperty("Accept", "application/dns-message")
+        c.outputStream.use { it.write(query) }
+        val r = if (c.responseCode == 200) c.inputStream.use { it.readBytes() } else null
+        c.disconnect()
+        r?.takeIf { it.size >= 12 }
+    } catch (e: Exception) { null }
 
     /** Arma el paquete IPv4+UDP de respuesta (origen y destino invertidos). */
     private fun buildIpUdp(req: ByteArray, ihl: Int, dns: ByteArray): ByteArray {

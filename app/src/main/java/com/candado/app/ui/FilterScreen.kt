@@ -68,6 +68,25 @@ fun FilterScreen() {
             }
         }
 
+        if (Store.upstream == Upstream.NEXTDNS) {
+            var idInput by remember { mutableStateOf(Store.nextDnsId) }
+            InfoCard {
+                Text("Tu NextDNS")
+                Hint("Escribe tu ID (6 letras/números) o pega tu nombre de DNS privado, ej. abc123.dns.nextdns.io. Lo ves en my.nextdns.io > Configuración.")
+                OutlinedTextField(idInput, { idInput = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("ID de NextDNS") })
+                Button(onClick = {
+                    val id = Store.parseNextDnsId(idInput)
+                    when {
+                        id == null -> toast(ctx, "No reconozco ese ID. Debe tener 6 caracteres, ej. abc123.")
+                        id != Store.nextDnsId && !filtroOpen -> toast(ctx, "Candado activo: ábrelo para cambiar el ID.")
+                        else -> { Store.nextDnsId = id; idInput = id; toast(ctx, "NextDNS $id guardado") }
+                    }
+                }) { Text("Guardar") }
+                if (Store.nextDnsId.isEmpty()) Hint("Mientras no guardes el ID se usa Cloudflare Familia.", Danger)
+                else Hint("Activo: ${Store.nextDnsId}. Si NextDNS no responde, se usa Cloudflare Familia de respaldo. Con candado en el filtro, el panel de NextDNS queda bloqueado.", Ok)
+            }
+        }
+
         SectionTitle("Sitios bloqueados extra")
         Hint("Escribe dominios como: tiktok.com, instagram.com. Bloquea también sus subdominios.")
         EditableList(
