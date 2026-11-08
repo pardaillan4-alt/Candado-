@@ -74,14 +74,16 @@ class FilterVpnService : VpnService() {
                 .addAddress(VADDR, 32)
                 .addDnsServer(VDNS)
                 .addRoute(VDNS, 32)
-            HIJACK.forEach { b.addRoute(it, 32) }
+            // Ya no se capturan 8.8.8.8, 1.1.1.1, etc.: muchas apps de banco y cobro revisan si hay
+            // internet conectándose a esas IPs, y al capturarlas se quedaban "cargando".
+            b.setMtu(16384) // respuestas DNS grandes (bancos con CDN) caben completas
             try { b.addDisallowedApplication(packageName) } catch (_: Exception) {}
             Store.vpnExcluded.forEach { pkg -> try { b.addDisallowedApplication(pkg) } catch (_: Exception) {} }
             if (Build.VERSION.SDK_INT >= 29) { b.setBlocking(true); b.setMetered(false) }
             val fd = b.establish() ?: return
             tun = fd
             running = true
-            pool = Executors.newFixedThreadPool(6)
+            pool = Executors.newFixedThreadPool(16)
             reader = Thread({ loop(fd) }, "candado-dns").also { it.start() }
         } catch (e: Exception) {
             running = false
