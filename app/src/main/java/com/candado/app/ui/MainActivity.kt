@@ -56,8 +56,18 @@ fun MainScreen() {
             Spacer(Modifier.width(8.dp))
             Text(
                 if (creating) "Nuevo candado" else "Candado",
-                color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp
+                color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp,
+                modifier = Modifier.weight(1f)
             )
+            val mode = Store.themeMode
+            TextButton(onClick = {
+                Store.themeMode = when (mode) { "auto" -> "dia"; "dia" -> "noche"; else -> "auto" }
+            }) {
+                Text(
+                    when (mode) { "dia" -> "☀️ Día"; "noche" -> "🌙 Noche"; else -> "🌓 Auto" },
+                    color = Color.White
+                )
+            }
         }
         if (creating) {
             CreateLockScreen(onDone = { creating = false; tab = 1 })

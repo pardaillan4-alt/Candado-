@@ -49,6 +49,11 @@ object Store {
         get() = set("vpn_excluded")
         set(v) = putSet("vpn_excluded", v)
 
+    /** "auto" (según el teléfono), "dia" o "noche". */
+    var themeMode: String
+        get() = prefs.getString("theme", "auto") ?: "auto"
+        set(v) { prefs.edit().putString("theme", v).apply(); bump() }
+
     var filterEnabled: Boolean
         get() = prefs.getBoolean("filter", false)
         set(v) = putBool("filter", v)

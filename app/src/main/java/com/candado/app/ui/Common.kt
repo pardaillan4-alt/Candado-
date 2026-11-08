@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.candado.app.data.Store
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -22,15 +23,22 @@ val Ok = Color(0xFF2E7D32)
 
 @Composable
 fun CandadoTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+    val mode = Store.themeMode.also { Store.rev.intValue }
+    val dark = when (mode) { "dia" -> false; "noche" -> true; else -> isSystemInDarkTheme() }
     val scheme = if (dark) darkColorScheme(
         primary = Gold, onPrimary = Teal, secondary = Color(0xFF8FC9C4),
-        background = Color(0xFF101414), surface = Color(0xFF172020)
+        background = Color(0xFF101414), onBackground = Color(0xFFE8EAE8),
+        surface = Color(0xFF1E2828), onSurface = Color(0xFFE8EAE8),
+        surfaceVariant = Color(0xFF2A3636), onSurfaceVariant = Color(0xFFC4CCCB)
     ) else lightColorScheme(
         primary = Teal, onPrimary = Color.White, secondary = Color(0xFF8A6A12),
-        background = Color(0xFFF6F4EF), surface = Color.White
+        background = Color(0xFFF6F4EF), onBackground = Color(0xFF1B1F1F),
+        surface = Color.White, onSurface = Color(0xFF1B1F1F)
     )
-    MaterialTheme(colorScheme = scheme, content = content)
+    // Surface da el color de texto correcto (claro en noche, oscuro en día) a toda la app.
+    MaterialTheme(colorScheme = scheme) {
+        Surface(color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground, content = content)
+    }
 }
 
 fun toast(ctx: Context, msg: String) = Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
