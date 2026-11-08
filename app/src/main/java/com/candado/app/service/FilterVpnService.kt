@@ -42,6 +42,11 @@ class FilterVpnService : VpnService() {
             }
         }
 
+        /** Reinicia el filtro para aplicar cambios en las apps excluidas. */
+        fun restart(ctx: Context) {
+            try { ctx.startService(Intent(ctx, FilterVpnService::class.java).setAction("RESTART")) } catch (_: Exception) {}
+        }
+
         fun stop(ctx: Context) {
             ctx.startService(Intent(ctx, FilterVpnService::class.java).setAction("STOP"))
         }
@@ -57,6 +62,7 @@ class FilterVpnService : VpnService() {
             if (!Guard.filterActive()) { shutdown(); stopSelf() }
             return START_NOT_STICKY
         }
+        if (intent?.action == "RESTART" && running) shutdown()
         if (!running) establish()
         return START_STICKY
     }
@@ -70,6 +76,7 @@ class FilterVpnService : VpnService() {
                 .addRoute(VDNS, 32)
             HIJACK.forEach { b.addRoute(it, 32) }
             try { b.addDisallowedApplication(packageName) } catch (_: Exception) {}
+            Store.vpnExcluded.forEach { pkg -> try { b.addDisallowedApplication(pkg) } catch (_: Exception) {} }
             if (Build.VERSION.SDK_INT >= 29) { b.setBlocking(true); b.setMetered(false) }
             val fd = b.establish() ?: return
             tun = fd

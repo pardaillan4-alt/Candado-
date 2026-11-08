@@ -100,6 +100,10 @@ fun FilterScreen() {
             onRemove = { d -> loosen(filtroOpen) { Store.blockedDomains = Store.blockedDomains - d } }
         )
 
+        SectionTitle("Apps de trabajo sin filtro")
+        Hint("Si una app de trabajo (punto de venta, banco, terminal) no se conecta con el filtro encendido, agrégala aquí: se conectará directo. No agregues navegadores. Agregar requiere el candado del filtro abierto; quitar siempre se puede.")
+        WorkAppsPicker(filtroOpen)
+
         SectionTitle("Palabras prohibidas en pantalla")
         if (!palabrasOpen) Hint("🔒 Con candado: puedes agregar palabras, no quitarlas.", Danger)
         SwitchRow("Cerrar cualquier pantalla que muestre estas palabras", Store.keywordsEnabled) { on ->
@@ -135,6 +139,44 @@ fun EditableList(items: List<String>, placeholder: String, onAdd: (String) -> Un
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("• $w", Modifier.weight(1f))
             TextButton(onClick = { onRemove(w) }) { Text("Quitar") }
+        }
+    }
+}
+
+
+private val BROWSER_HINTS = listOf("chrome", "firefox", "browser", "opera", "brave", "edge", "duckduckgo", "torproject", "samsung.android.sbrowser", "UCMobile", "kiwi", "vivaldi")
+
+@Composable
+private fun WorkAppsPicker(filtroOpen: Boolean) {
+    val ctx = LocalContext.current
+    var query by remember { mutableStateOf("") }
+    val pm = ctx.packageManager
+    val installed = remember {
+        val i = android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+        pm.queryIntentActivities(i, 0).map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+            .distinctBy { it.first }.filter { it.first != ctx.packageName }.sortedBy { it.second.lowercase() }
+    }
+    val excluded = Store.vpnExcluded
+    excluded.forEach { pkg ->
+        val label = installed.firstOrNull { it.first == pkg }?.second ?: pkg
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("• $label", Modifier.weight(1f))
+            TextButton(onClick = { Store.vpnExcluded = Store.vpnExcluded - pkg; FilterVpnService.restart(ctx) }) { Text("Quitar") }
+        }
+    }
+    OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Buscar app para excluir") })
+    if (query.length >= 2) {
+        installed.filter { it.second.contains(query, true) && it.first !in excluded }.take(6).forEach { (pkg, label) ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(label, Modifier.weight(1f))
+                TextButton(onClick = {
+                    when {
+                        BROWSER_HINTS.any { pkg.contains(it, true) } -> toast(ctx, "Los navegadores no se pueden excluir: eso abriría un hueco en el filtro.")
+                        !filtroOpen -> toast(ctx, "Candado activo: abre el candado del filtro para excluir una app.")
+                        else -> { Store.vpnExcluded = Store.vpnExcluded + pkg; FilterVpnService.restart(ctx); query = ""; toast(ctx, "$label ya no pasa por el filtro") }
+                    }
+                }) { Text("Excluir") }
+            }
         }
     }
 }

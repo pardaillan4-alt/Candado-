@@ -44,6 +44,11 @@ object Store {
         get() = set("domains")
         set(v) = putSet("domains", v)
 
+    /** Apps de trabajo que NO pasan por el filtro (ej. punto de venta). */
+    var vpnExcluded: Set<String>
+        get() = set("vpn_excluded")
+        set(v) = putSet("vpn_excluded", v)
+
     var filterEnabled: Boolean
         get() = prefs.getBoolean("filter", false)
         set(v) = putBool("filter", v)
