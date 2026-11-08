@@ -100,6 +100,31 @@ fun FilterScreen() {
             onRemove = { d -> loosen(filtroOpen) { Store.blockedDomains = Store.blockedDomains - d } }
         )
 
+        SectionTitle("Modo trabajo (solo sitios permitidos)")
+        Hint("Bloquea TODO internet excepto los sitios de esta lista. Ideal para celulares del negocio: solo funciona el POS. Las apps de \"Apps de trabajo sin filtro\" (ej. Inbursa) sí tienen internet completo. Requiere el filtro encendido.")
+        SwitchRow("Activar Modo trabajo", Store.workMode) { on ->
+            if (on) {
+                if (!Store.filterEnabled) toast(ctx, "Primero enciende el filtro de arriba.")
+                else Store.workMode = true
+            } else loosen(filtroOpen) { Store.workMode = false }
+        }
+        if (Store.workMode || Store.workAllowed != Store.WORK_DEFAULTS) {
+            Hint("Agrega la dirección de tu POS (cópiala de la barra de Chrome, ej. pulpito-pos.netlify.app). Las de Firebase ya vienen incluidas.")
+            EditableList(
+                items = Store.workAllowed.sorted(),
+                placeholder = "sitio-del-pos.com",
+                onAdd = { d ->
+                    val clean = d.trim().lowercase().removePrefix("https://").removePrefix("http://").removePrefix("www.").substringBefore('/')
+                    when {
+                        !clean.contains('.') -> toast(ctx, "Escribe un dominio válido, ej. sitio.com")
+                        !filtroOpen && Store.workMode -> toast(ctx, "Candado activo: ábrelo para permitir un sitio nuevo.")
+                        else -> Store.workAllowed = Store.workAllowed + clean
+                    }
+                },
+                onRemove = { d -> Store.workAllowed = Store.workAllowed - d }
+            )
+        }
+
         SectionTitle("Apps de trabajo sin filtro")
         Hint("Si una app de trabajo (punto de venta, banco, terminal) no se conecta con el filtro encendido, agrégala aquí: se conectará directo. No agregues navegadores. Agregar requiere el candado del filtro abierto; quitar siempre se puede.")
         WorkAppsPicker(filtroOpen)

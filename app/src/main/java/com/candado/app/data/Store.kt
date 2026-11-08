@@ -54,6 +54,19 @@ object Store {
         get() = prefs.getString("theme", "auto") ?: "auto"
         set(v) { prefs.edit().putString("theme", v).apply(); bump() }
 
+    /** Modo trabajo: se bloquea TODO internet menos estos dominios. */
+    var workMode: Boolean
+        get() = prefs.getBoolean("workmode", false)
+        set(v) = putBool("workmode", v)
+
+    val WORK_DEFAULTS = setOf(
+        "firebaseapp.com", "googleapis.com", "gstatic.com", "firebaseio.com", "time.android.com"
+    )
+
+    var workAllowed: Set<String>
+        get() = prefs.getStringSet("work_allowed", null)?.toSet() ?: WORK_DEFAULTS
+        set(v) = putSet("work_allowed", v)
+
     var filterEnabled: Boolean
         get() = prefs.getBoolean("filter", false)
         set(v) = putBool("filter", v)

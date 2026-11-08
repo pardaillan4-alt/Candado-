@@ -48,6 +48,11 @@ object DnsFilter {
         val name = rawName.lowercase().trimEnd('.')
         if (name.isEmpty()) return Verdict.Forward
 
+        if (Store.workMode) {
+            if (Store.workAllowed.none { matchesDomain(name, it.lowercase()) }) return Verdict.Block
+            if (name.startsWith("youtube") || name.contains(".youtube")) return Verdict.Block
+        }
+
         if (Store.blockedDomains.any { matchesDomain(name, it.lowercase()) }) return Verdict.Block
         if (ADULT.any { name.contains(it) }) return Verdict.Block
         // Con NextDNS y candado en el filtro, no se puede entrar al panel para aflojarlo.
