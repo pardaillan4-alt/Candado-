@@ -36,7 +36,7 @@ class MainActivity : FragmentActivity() {
     }
 }
 
-private val TABS = listOf("Inicio", "Candados", "Apps", "Filtro", "Permisos")
+private val TABS = listOf("Inicio", "Rutina", "Candados", "Apps", "Filtro", "Permisos")
 
 @Composable
 fun MainScreen() {
@@ -70,16 +70,17 @@ fun MainScreen() {
             }
         }
         if (creating) {
-            CreateLockScreen(onDone = { creating = false; tab = 1 })
+            CreateLockScreen(onDone = { creating = false; tab = 2 })
         } else {
             ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp) {
                 TABS.forEachIndexed { i, t -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) }) }
             }
             when (tab) {
                 0 -> HomeScreen(onGo = { tab = it }, onNewLock = { creating = true })
-                1 -> LocksScreen(onNewLock = { creating = true })
-                2 -> AppsScreen()
-                3 -> FilterScreen()
+                1 -> RoutineScreen()
+                2 -> LocksScreen(onNewLock = { creating = true })
+                3 -> AppsScreen()
+                4 -> FilterScreen()
                 else -> SetupScreen()
             }
         }

@@ -63,6 +63,12 @@ class GuardAccessibilityService : AccessibilityService() {
         override fun run() {
             try {
                 Guard.cleanupExpired()
+                val antes = com.candado.app.core.Routine.sesion()
+                com.candado.app.core.Routine.revisarAutomaticas()
+                if (antes == null && com.candado.app.core.Routine.sesion() != null) {
+                    startActivity(Intent(this@GuardAccessibilityService, com.candado.app.ui.FocusActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
                 TrustedClock.syncAsync()
                 ensureVpn()
                 OwnerPolicies.apply(this@GuardAccessibilityService)
@@ -101,6 +107,21 @@ class GuardAccessibilityService : AccessibilityService() {
         e ?: return
         val pkg = e.packageName?.toString() ?: return
         if (pkg == packageName) return
+
+        // Rutina: durante una actividad solo se permiten urgencias y las apps elegidas.
+        com.candado.app.core.Routine.sesion()?.let { ses ->
+            if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !isKeyboard(pkg) &&
+                pkg !in com.candado.app.core.Routine.permitidas(this, ses)) {
+                val t = SystemClock.uptimeMillis()
+                if (t - lastKick > 600) {
+                    lastKick = t
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    startActivity(Intent(this, com.candado.app.ui.FocusActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+                }
+                return
+            }
+        }
 
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && Guard.appBlocked(pkg)) {
             kick("app", pkg, goBack = false)

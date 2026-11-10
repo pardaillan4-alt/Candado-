@@ -36,7 +36,7 @@ fun HomeScreen(onGo: (Int) -> Unit, onNewLock: () -> Unit) {
             InfoCard {
                 Text("⚠️ Faltan permisos", fontWeight = FontWeight.Bold, color = Danger)
                 missing.forEach { Hint("• $it") }
-                Button(onClick = { onGo(4) }) { Text("Configurar permisos") }
+                Button(onClick = { onGo(5) }) { Text("Configurar permisos") }
             }
         }
 
@@ -48,6 +48,7 @@ fun HomeScreen(onGo: (Int) -> Unit, onNewLock: () -> Unit) {
                 Target.APPS -> Store.blockedApps.isNotEmpty()
                 Target.FILTRO -> Store.filterEnabled
                 Target.PALABRAS -> Store.keywordsEnabled
+                Target.RUTINA -> com.candado.app.core.Routine.actividades().isNotEmpty()
                 else -> locks.isNotEmpty()
             }
             InfoCard {

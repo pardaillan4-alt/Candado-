@@ -49,6 +49,13 @@
             android:taskAffinity="com.candado.app.blocked" />
 
         <activity
+            android:name=".ui.FocusActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.candado.app.focus" />
+
+        <activity
             android:name=".ui.VpnConsentActivity"
             android:exported="false"
             android:excludeFromRecents="true" />

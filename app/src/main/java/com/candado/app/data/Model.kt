@@ -9,7 +9,8 @@ enum class Target(val titulo: String, val desc: String) {
     FILTRO("Filtro de internet", "Bloquea contenido para adultos en todo el celular (todas las apps y navegadores). No se puede apagar."),
     DNS_VPN("DNS y VPN", "Cierra las pantallas de DNS privado, VPN y solicitudes de otras VPN para que no se pueda evadir el filtro."),
     AJUSTES("Ajustes críticos", "Impide desactivar o desinstalar Candado, cambiar fecha/hora, opciones de desarrollador y restablecer de fábrica."),
-    PALABRAS("Palabras prohibidas", "Cierra cualquier pantalla (navegador, redes, apps) que muestre una palabra de tu lista.")
+    PALABRAS("Palabras prohibidas", "Cierra cualquier pantalla (navegador, redes, apps) que muestre una palabra de tu lista."),
+    RUTINA("Rutina de actividades", "No se pueden borrar ni acortar actividades de la rutina (sí agregar nuevas).")
 }
 
 /** Cómo se abre un candado. */
