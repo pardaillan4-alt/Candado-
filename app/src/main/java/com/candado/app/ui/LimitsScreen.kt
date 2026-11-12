@@ -61,7 +61,8 @@ fun LimitsScreen() {
         Limits.lista().forEach { l ->
             InfoCard {
                 Text(l.nombre, fontWeight = FontWeight.Bold)
-                Hint("Apps: " + l.apps.joinToString { label(it) })
+                Hint("Apps: " + l.apps.joinToString { label(it) }.ifEmpty { "—" })
+                if (l.sitios.isNotEmpty()) Hint("Web: " + l.sitios.sorted().joinToString())
                 Hint("De ${Limits.hhmm(l.desde)} a ${Limits.hhmm(l.hasta)} · " +
                     (if (l.minutos <= 0) "bloqueadas" else "${l.minutos} min en total") + " · " +
                     (if (l.dias.size == 7) "todos los días" else DIAS_L.filter { it.first in l.dias }.joinToString(" ") { it.second }))
@@ -92,6 +93,8 @@ private fun LimiteEditor(orig: Limite, isNew: Boolean, onDone: () -> Unit) {
     var hm by remember { mutableStateOf("%02d".format(orig.hasta % 60)) }
     var minutos by remember { mutableStateOf(orig.minutos.toString()) }
     var dias by remember { mutableStateOf(orig.dias) }
+    var sitios by remember { mutableStateOf(orig.sitios) }
+    var sitioIn by remember { mutableStateOf("") }
     var query by remember { mutableStateOf("") }
     val pm = ctx.packageManager
     val todas = remember {
@@ -120,9 +123,28 @@ private fun LimiteEditor(orig: Limite, isNew: Boolean, onDone: () -> Unit) {
             todas.filter { it.second.contains(query, true) && it.first !in apps }.take(6).forEach { (p, l) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(l, Modifier.weight(1f))
-                    TextButton(onClick = { apps = apps + p; query = ""; if (nombre.isBlank()) nombre = l.substringBefore(" ·") }) { Text("Agregar") }
+                    TextButton(onClick = {
+                        apps = apps + p; query = ""; if (nombre.isBlank()) nombre = l.substringBefore(" ·")
+                        Limits.SITIOS_DE_APP[p]?.let { sitios = sitios + it }
+                    }) { Text("Agregar") }
                 }
             }
+        }
+
+        SectionTitle("Páginas web (navegador)")
+        Hint("El tiempo en estas páginas desde cualquier navegador se suma al mismo límite, y al agotarse también se bloquean. Se agregan solas para YouTube, Instagram, TikTok, Facebook, etc.")
+        sitios.sorted().forEach { w ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("• $w", Modifier.weight(1f))
+                TextButton(onClick = { sitios = sitios - w }) { Text("Quitar") }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(sitioIn, { sitioIn = it }, Modifier.weight(1f), singleLine = true, placeholder = { Text("ej. youtube.com") })
+            TextButton(onClick = {
+                val c = sitioIn.trim().lowercase().removePrefix("https://").removePrefix("http://").removePrefix("www.").substringBefore('/')
+                if (c.contains('.')) { sitios = sitios + c; sitioIn = "" } else toast(ctx, "Escribe un dominio, ej. youtube.com")
+            }) { Text("Agregar") }
         }
 
         SectionTitle("Horario")
@@ -154,7 +176,7 @@ private fun LimiteEditor(orig: Limite, isNew: Boolean, onDone: () -> Unit) {
             val d = dh.toIntOrNull(); val dmi = dm.toIntOrNull(); val h = hh.toIntOrNull(); val hmi = hm.toIntOrNull()
             val min = minutos.toIntOrNull()
             when {
-                apps.isEmpty() -> toast(ctx, "Agrega al menos una app.")
+                apps.isEmpty() && sitios.isEmpty() -> toast(ctx, "Agrega al menos una app o página web.")
                 d == null || d !in 0..23 || dmi == null || dmi !in 0..59 || h == null || h !in 0..23 || hmi == null || hmi !in 0..59 ->
                     toast(ctx, "Revisa las horas (0-23) y minutos (0-59).")
                 min == null || min > 1440 -> toast(ctx, "Minutos de 0 a 1440.")
@@ -162,7 +184,7 @@ private fun LimiteEditor(orig: Limite, isNew: Boolean, onDone: () -> Unit) {
                 else -> {
                     val n = orig.copy(
                         nombre = nombre.trim().ifEmpty { "Límite" }, apps = apps,
-                        desde = d * 60 + dmi, hasta = h * 60 + hmi, minutos = min, dias = dias
+                        desde = d * 60 + dmi, hasta = h * 60 + hmi, minutos = min, dias = dias, sitios = sitios
                     )
                     val l = Limits.lista()
                     Limits.guardar(if (isNew) l + n else l.map { if (it.id == n.id) n else it })

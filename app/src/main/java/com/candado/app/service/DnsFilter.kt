@@ -53,6 +53,9 @@ object DnsFilter {
             if (name.startsWith("youtube") || name.contains(".youtube")) return Verdict.Block
         }
 
+        val porLimite = com.candado.app.core.Limits.sitiosBloqueadosDns(com.candado.app.CandadoApp.ctx)
+        if (porLimite.any { matchesDomain(name, it) }) return Verdict.Block
+
         if (Store.blockedDomains.any { matchesDomain(name, it.lowercase()) }) return Verdict.Block
         if (ADULT.any { name.contains(it) }) return Verdict.Block
         // Con NextDNS y candado en el filtro, no se puede entrar al panel para aflojarlo.

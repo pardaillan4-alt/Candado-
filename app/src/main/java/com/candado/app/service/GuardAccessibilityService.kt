@@ -59,11 +59,46 @@ class GuardAccessibilityService : AccessibilityService() {
     private var lastKick = 0L
     private var lastPkg = ""
     @Volatile private var fgPkg = ""
+    @Volatile private var webHost = ""
+    private var lastWebTick = 0L
+    private var lastUrlScan = 0L
+
+    private val URL_IDS = listOf("url_bar", "url_field", "location_bar_edit_text", "mozac_browser_toolbar_url_view", "url", "search_box_text", "address_bar_edit_text")
+
+    /** Lee la dirección de la barra del navegador y devuelve el dominio (ej. m.youtube.com). */
+    private fun leerHost(pkg: String): String {
+        val root = rootInActiveWindow ?: return ""
+        for (id in URL_IDS) {
+            val n = try { root.findAccessibilityNodeInfosByViewId("$pkg:id/$id") } catch (e: Exception) { null }
+            val t = n?.firstOrNull()?.text?.toString()?.trim()?.lowercase()
+            if (!t.isNullOrEmpty()) {
+                val h = t.removePrefix("https://").removePrefix("http://").substringBefore('/').substringBefore('?').substringBefore(' ')
+                if (h.contains('.')) return h.removePrefix("www.")
+            }
+        }
+        return ""
+    }
+
+    /** Suma el tiempo que el navegador estuvo en un sitio limitado y lo cierra si ya se agotó. */
+    private fun revisarWeb() {
+        val now = SystemClock.elapsedRealtime()
+        val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
+        val host = webHost
+        if (host.isNotEmpty() && fgPkg in com.candado.app.core.Limits.NAVEGADORES && pm.isInteractive && lastWebTick > 0) {
+            com.candado.app.core.Limits.sumarWeb(host, (now - lastWebTick).coerceAtMost(15_000))
+        }
+        lastWebTick = now
+        if (host.isNotEmpty() && fgPkg in com.candado.app.core.Limits.NAVEGADORES &&
+            com.candado.app.core.Limits.sitioExcedido(this, host) != null) {
+            kick("limite_web", host, goBack = true)
+        }
+    }
 
     /** Revisa cada 10 s si la app abierta ya agotó su tiempo. */
     private val limitTick = object : Runnable {
         override fun run() {
             try {
+                revisarWeb()
                 val p = fgPkg
                 if (p.isNotEmpty() && p != packageName && com.candado.app.core.Limits.excedido(this@GuardAccessibilityService, p) != null) {
                     kick("limite", p, goBack = false)
@@ -139,7 +174,19 @@ class GuardAccessibilityService : AccessibilityService() {
             }
         }
 
+        if (pkg in com.candado.app.core.Limits.NAVEGADORES && com.candado.app.core.Limits.lista().any { it.sitios.isNotEmpty() }) {
+            val t = SystemClock.uptimeMillis()
+            if (t - lastUrlScan > 1000 || e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                lastUrlScan = t
+                fgPkg = pkg
+                val h = leerHost(pkg)
+                if (h != webHost) { revisarWeb(); webHost = h }
+                if (h.isNotEmpty() && com.candado.app.core.Limits.sitioExcedido(this, h) != null) { kick("limite_web", h, goBack = true); return }
+            }
+        }
+
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !isKeyboard(pkg) && pkg != "com.android.systemui") {
+            if (pkg !in com.candado.app.core.Limits.NAVEGADORES) webHost = ""
             fgPkg = pkg
             if (com.candado.app.core.Limits.excedido(this, pkg) != null) { kick("limite", pkg, goBack = false); return }
         }

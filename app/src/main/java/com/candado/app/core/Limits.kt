@@ -25,11 +25,14 @@ data class Limite(
     val desde: Int,
     val hasta: Int,
     val minutos: Int,
-    val dias: Set<Int>
+    val dias: Set<Int>,
+    /** Páginas web que cuentan para el mismo límite (ej. youtube.com). */
+    val sitios: Set<String> = emptySet()
 ) {
     fun toJson() = JSONObject().apply {
         put("id", id); put("nombre", nombre); put("apps", JSONArray(apps.toList()))
         put("desde", desde); put("hasta", hasta); put("minutos", minutos); put("dias", JSONArray(dias.toList()))
+        put("sitios", JSONArray(sitios.toList()))
     }
 
     companion object {
@@ -37,21 +40,98 @@ data class Limite(
             o.getString("id"), o.optString("nombre", "Límite"),
             o.optJSONArray("apps")?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() } ?: emptySet(),
             o.optInt("desde", 21 * 60), o.optInt("hasta", 0), o.optInt("minutos", 30),
-            o.optJSONArray("dias")?.let { a -> (0 until a.length()).map { a.getInt(it) }.toSet() } ?: (1..7).toSet()
+            o.optJSONArray("dias")?.let { a -> (0 until a.length()).map { a.getInt(it) }.toSet() } ?: (1..7).toSet(),
+            o.optJSONArray("sitios")?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() }
+                // Límites creados antes: se agregan solos los sitios de las apps conocidas.
+                ?: (o.optJSONArray("apps")?.let { a -> (0 until a.length()).flatMap { Limits.SITIOS_DE_APP[a.getString(it)] ?: emptyList() }.toSet() } ?: emptySet())
         )
     }
 }
 
 object Limits {
+    /** Sitios web de apps conocidas: se agregan solos al elegir la app. */
+    val SITIOS_DE_APP = mapOf(
+        "com.google.android.youtube" to listOf("youtube.com", "youtu.be", "youtube-nocookie.com"),
+        "com.instagram.android" to listOf("instagram.com"), "com.instagram.lite" to listOf("instagram.com"),
+        "com.instagram.barcelona" to listOf("threads.net", "threads.com"),
+        "com.zhiliaoapp.musically" to listOf("tiktok.com"), "com.zhiliaoapp.musically.go" to listOf("tiktok.com"),
+        "com.facebook.katana" to listOf("facebook.com", "fb.com", "fb.watch"), "com.facebook.lite" to listOf("facebook.com", "fb.com"),
+        "com.twitter.android" to listOf("x.com", "twitter.com"), "com.reddit.frontpage" to listOf("reddit.com"),
+        "com.pinterest" to listOf("pinterest.com"), "tv.twitch.android.app" to listOf("twitch.tv"),
+        "com.netflix.mediaclient" to listOf("netflix.com"), "com.snapchat.android" to listOf("snapchat.com"),
+        "com.kwai.video" to listOf("kwai.com"), "com.discord" to listOf("discord.com")
+    )
+
+    val NAVEGADORES = setOf(
+        "com.android.chrome", "com.chrome.beta", "org.mozilla.firefox", "org.mozilla.firefox_beta", "com.opera.browser",
+        "com.opera.mini.native", "com.brave.browser", "com.microsoft.emmx", "com.sec.android.app.sbrowser",
+        "com.mi.globalbrowser", "com.android.browser", "com.duckduckgo.mobile.android", "com.kiwibrowser.browser",
+        "com.vivaldi.browser", "com.UCMobile.intl", "org.torproject.torbrowser", "com.yandex.browser", "com.huawei.browser",
+        "com.heytap.browser", "com.google.android.googlequicksearchbox"
+    )
+
+    private fun hostCoincide(host: String, sitio: String) = host == sitio || host.endsWith(".$sitio")
+
+    /** Límites en horario cuyo sitio coincide con la dirección abierta en el navegador. */
+    fun limitesDeSitio(host: String, now: Long = Guard.now()): List<Pair<Limite, Long>> =
+        lista().mapNotNull { l -> if (l.sitios.any { hostCoincide(host, it) }) inicioVentana(l, now)?.let { l to it } else null }
+
+    private fun claveWeb(l: Limite, inicio: Long) = "web_${l.id}_$inicio"
+
+    /** Suma tiempo de uso en el navegador a los límites de ese sitio. */
+    fun sumarWeb(host: String, ms: Long) {
+        if (ms <= 0) return
+        val e = Store.prefs.edit()
+        limitesDeSitio(host).forEach { (l, ini) ->
+            val k = claveWeb(l, ini); e.putLong(k, Store.prefs.getLong(k, 0) + ms)
+        }
+        e.apply(); cache.clear()
+    }
+
+    /** ¿El sitio ya está agotado/bloqueado ahora? */
+    fun sitioExcedido(ctx: Context, host: String): Limite? {
+        if (Guard.paused(Target.LIMITES)) return null
+        for ((l, ini) in limitesDeSitio(host)) {
+            if (l.minutos <= 0) return l
+            if (usado(ctx, l, ini) >= l.minutos * 60_000L) return l
+        }
+        return null
+    }
+
+    @Volatile private var dnsCache: Pair<Long, Set<String>> = 0L to emptySet()
+
+    /** Sitios a bloquear por DNS (límites agotados o en 0), recalculado cada 15 s. */
+    fun sitiosBloqueadosDns(ctx: Context): Set<String> {
+        val (t, v) = dnsCache
+        if (SystemClock.elapsedRealtime() - t < 15_000) return v
+        val set = HashSet<String>()
+        if (!Guard.paused(Target.LIMITES)) {
+            val now = Guard.now()
+            for (l in lista()) {
+                if (l.sitios.isEmpty()) continue
+                val ini = inicioVentana(l, now) ?: continue
+                if (l.minutos <= 0 || usado(ctx, l, ini) >= l.minutos * 60_000L) set += l.sitios
+            }
+        }
+        dnsCache = SystemClock.elapsedRealtime() to set
+        return set
+    }
+
+    @Volatile private var listaCache: Pair<String, List<Limite>> = "" to emptyList()
+
     fun lista(): List<Limite> {
-        val arr = try { JSONArray(Store.prefs.getString("limites", "[]")) } catch (e: Exception) { JSONArray() }
-        return (0 until arr.length()).mapNotNull { try { Limite.fromJson(arr.getJSONObject(it)) } catch (e: Exception) { null } }
+        val raw = Store.prefs.getString("limites", "[]") ?: "[]"
+        listaCache.let { if (it.first == raw) return it.second }
+        val arr = try { JSONArray(raw) } catch (e: Exception) { JSONArray() }
+        val l = (0 until arr.length()).mapNotNull { try { Limite.fromJson(arr.getJSONObject(it)) } catch (e: Exception) { null } }
+        listaCache = raw to l
+        return l
     }
 
     fun guardar(l: List<Limite>) {
         val arr = JSONArray(); l.forEach { arr.put(it.toJson()) }
         Store.prefs.edit().putString("limites", arr.toString()).apply()
-        cache.clear()
+        cache.clear(); dnsCache = 0L to emptySet()
         Store.rev.intValue = Store.rev.intValue + 1
     }
 
@@ -121,6 +201,7 @@ object Limits {
             }
             abierto.values.forEach { s -> total += (hasta - maxOf(s, desde)).coerceAtLeast(0) }
         } catch (_: Exception) {}
+        total += Store.prefs.getLong(claveWeb(l, inicio), 0)
         cache[key] = SystemClock.elapsedRealtime() to total
         return total
     }
