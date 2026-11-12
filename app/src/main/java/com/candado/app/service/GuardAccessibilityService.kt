@@ -58,6 +58,20 @@ class GuardAccessibilityService : AccessibilityService() {
     private var lastScan = 0L
     private var lastKick = 0L
     private var lastPkg = ""
+    @Volatile private var fgPkg = ""
+
+    /** Revisa cada 10 s si la app abierta ya agotó su tiempo. */
+    private val limitTick = object : Runnable {
+        override fun run() {
+            try {
+                val p = fgPkg
+                if (p.isNotEmpty() && p != packageName && com.candado.app.core.Limits.excedido(this@GuardAccessibilityService, p) != null) {
+                    kick("limite", p, goBack = false)
+                }
+            } catch (_: Exception) {}
+            handler.postDelayed(this, 10_000)
+        }
+    }
 
     private val tick = object : Runnable {
         override fun run() {
@@ -82,11 +96,13 @@ class GuardAccessibilityService : AccessibilityService() {
         Store.init(this)
         running = true
         handler.post(tick)
+        handler.postDelayed(limitTick, 10_000)
     }
 
     override fun onDestroy() {
         running = false
         handler.removeCallbacks(tick)
+        handler.removeCallbacks(limitTick)
         super.onDestroy()
     }
 
@@ -121,6 +137,11 @@ class GuardAccessibilityService : AccessibilityService() {
                 }
                 return
             }
+        }
+
+        if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !isKeyboard(pkg) && pkg != "com.android.systemui") {
+            fgPkg = pkg
+            if (com.candado.app.core.Limits.excedido(this, pkg) != null) { kick("limite", pkg, goBack = false); return }
         }
 
         if (e.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && Guard.appBlocked(pkg)) {

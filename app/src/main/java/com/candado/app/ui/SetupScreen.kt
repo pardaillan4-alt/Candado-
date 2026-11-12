@@ -52,6 +52,8 @@ object Perms {
         if (!OwnerPolicies.isAdmin(ctx)) add("Protección contra desinstalación (administrador) apagada")
         if (Store.filterEnabled && VpnService.prepare(ctx) != null) add("Permiso del filtro (VPN) sin dar")
         if (!batteryOk(ctx)) add("Ahorro de batería puede detener Candado")
+        if (com.candado.app.core.Limits.lista().any { it.minutos > 0 } && !com.candado.app.core.Limits.permisoUso(ctx))
+            add("Acceso a datos de uso sin dar: los límites con minutos bloquearán todo el horario")
     }
 }
 
@@ -121,6 +123,13 @@ fun SetupScreen() {
                     ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.packageName)))
                 }
             }
+
+            StepCard(
+                n = 6, title = "Acceso a datos de uso (para Horarios)",
+                done = com.candado.app.core.Limits.permisoUso(ctx),
+                desc = "Permite medir cuántos minutos usas cada app para los límites por horario. Búscalo como \"Candado\" y actívalo. Dalo ANTES de poner candado a Ajustes críticos.",
+                button = "Dar permiso"
+            ) { try { ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) } catch (_: Exception) {} }
 
             StepCard(
                 n = 5, title = "Recomendado: VPN siempre activa",

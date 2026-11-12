@@ -10,7 +10,8 @@ enum class Target(val titulo: String, val desc: String) {
     DNS_VPN("DNS y VPN", "Cierra las pantallas de DNS privado, VPN y solicitudes de otras VPN para que no se pueda evadir el filtro."),
     AJUSTES("Ajustes críticos", "Impide desactivar o desinstalar Candado, cambiar fecha/hora, opciones de desarrollador y restablecer de fábrica."),
     PALABRAS("Palabras prohibidas", "Cierra cualquier pantalla (navegador, redes, apps) que muestre una palabra de tu lista."),
-    RUTINA("Rutina de actividades", "No se pueden borrar ni acortar actividades de la rutina (sí agregar nuevas).")
+    RUTINA("Rutina de actividades", "No se pueden borrar ni acortar actividades de la rutina (sí agregar nuevas)."),
+    LIMITES("Límites por horario", "No se pueden borrar ni aflojar los límites de tiempo de apps (sí agregar nuevos).")
 }
 
 /** Cómo se abre un candado. */

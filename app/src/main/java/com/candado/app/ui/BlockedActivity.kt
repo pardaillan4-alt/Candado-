@@ -55,10 +55,11 @@ class BlockedActivity : ComponentActivity() {
         val target = when (tipo) {
             "app" -> Target.APPS
             "palabra" -> Target.PALABRAS
+            "limite" -> Target.LIMITES
             else -> if (detalle.contains("VPN") || detalle.contains("DNS")) Target.DNS_VPN else Target.AJUSTES
         }
         val label = when (tipo) {
-            "app" -> try {
+            "app", "limite" -> try {
                 packageManager.getApplicationLabel(packageManager.getApplicationInfo(detalle, 0)).toString()
             } catch (e: Exception) { detalle }
             else -> detalle
@@ -77,6 +78,7 @@ class BlockedActivity : ComponentActivity() {
             Text(
                 when (tipo) {
                     "app" -> "$label está bloqueada"
+                    "limite" -> "Se acabó el tiempo de $label"
                     "palabra" -> "Contenido bloqueado"
                     else -> "Esta pantalla está protegida"
                 },
@@ -86,6 +88,10 @@ class BlockedActivity : ComponentActivity() {
             Text(
                 when (tipo) {
                     "palabra" -> "Se detectó una palabra de tu lista."
+                    "limite" -> com.candado.app.core.Limits.lista().firstOrNull { detalle in it.apps }?.let {
+                        "Límite \"${it.nombre}\": " + (if (it.minutos <= 0) "bloqueada" else "${it.minutos} min") +
+                            " de ${com.candado.app.core.Limits.hhmm(it.desde)} a ${com.candado.app.core.Limits.hhmm(it.hasta)}. Se libera a las ${com.candado.app.core.Limits.hhmm(it.hasta)}."
+                    } ?: "Ya usaste el tiempo permitido en este horario."
                     "app" -> "Decidiste bloquearla. Tú puedes más que el impulso."
                     else -> "Protección: $label"
                 },
